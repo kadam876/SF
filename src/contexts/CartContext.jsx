@@ -94,45 +94,42 @@ export const CartProvider = ({ children }) => {
     };
   }, []);
 
-  const addToCart = async (product, selectedSize, quantity = 1) => {
-    const { image, ...cleanProduct } = product; // Strip heavy base64
-    const itemData = {
-      ...cleanProduct,
-      productId: cleanProduct.id,
-      selectedSize,
-      quantity,
-    };
+  const addToCart = (product, selectedSize, quantity = 1) => {
+    const { image, ...cleanProduct } = product; // strip heavy base64
+    const productId = cleanProduct.id;
 
+    // ── Optimistic update — instant UI ───────────────────────────────────────
+    setCartItems(prev => {
+      const isWholesale = !!cleanProduct.isWholesale;
+      const match = prev.find(i =>
+        (i.productId === productId || i.id === productId) &&
+        (isWholesale ? i.isWholesale : i.selectedSize === selectedSize)
+      );
+      if (match) {
+        return prev.map(i => i === match ? { ...i, quantity: i.quantity + quantity } : i);
+      }
+      // New item — add with a temp id so the cart renders immediately
+      return [...prev, { ...cleanProduct, productId, selectedSize, quantity, _optimistic: true }];
+    });
+
+    // ── Background server sync ────────────────────────────────────────────────
     if (isAuthenticated) {
-      try {
-        const res = await fetch(API_ENDPOINTS.CART, {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify(itemData)
-        });
-        if (res.ok) {
-          const updatedCart = await res.json();
-          setCartItems(updatedCart);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    } else {
-      // Local fallback logic
-      const isWholesale = cleanProduct.isWholesale;
-      const matchCriteria = isWholesale 
-        ? (i => i.id === cleanProduct.id && i.isWholesale) 
-        : (i => i.id === cleanProduct.id && i.selectedSize === selectedSize);
-        
-      const existing = cartItems.find(matchCriteria);
-      if (existing) {
-        setCartItems(cartItems.map(item => 
-          matchCriteria(item) ? { ...item, quantity: item.quantity + quantity } : item
-        ));
-      } else {
-        setCartItems([...cartItems, itemData]);
-      }
+      const itemData = { ...cleanProduct, productId, selectedSize, quantity };
+      fetch(API_ENDPOINTS.CART, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(itemData),
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(serverCart => {
+          if (serverCart) {
+            // Replace optimistic state with authoritative server state
+            setCartItems(serverCart);
+          }
+        })
+        .catch(() => {/* silent — optimistic state stays */});
     }
+    // Guest: localStorage sync is handled by the existing useEffect
   };
 
   // Match a cart item by productId (handles both authenticated and guest carts)
