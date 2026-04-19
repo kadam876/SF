@@ -149,40 +149,187 @@ const MyOrders = () => {
     const gst   = order.gstAmount ?? sub * 0.05;
     const plat  = order.platformCharge ?? sub * 0.02;
     const grand = order.totalAmount ?? sub + gst + plat;
-    const win   = window.open('', '_blank');
-    win.document.write(`<html><head><title>Invoice #${order.id?.slice(-8).toUpperCase()}</title>
-      <style>body{font-family:Arial,sans-serif;padding:32px;color:#111;max-width:800px;margin:0 auto}
-      h2{color:#059669;margin-bottom:24px;font-weight:800}table{width:100%;border-collapse:collapse;margin-top:24px}
-      th,td{border-bottom:1px solid #e5e7eb;padding:12px 16px;text-align:left}
-      th{background:#f9fafb;font-weight:600;text-transform:uppercase;font-size:12px}
-      .meta{margin-bottom:8px;color:#4b5563}.meta strong{color:#111827}
-      .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6}
-      .total{display:flex;justify-content:space-between;padding:10px 0;font-weight:800;border-top:2px solid #111;margin-top:4px}
-      </style></head><body>
-      <h2>Sandhya Fashion — Invoice</h2>
-      <div style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:32px">
-        <p class="meta"><strong>Order ID:</strong> #${order.id?.slice(-8).toUpperCase()}</p>
-        <p class="meta"><strong>Date:</strong> ${order.orderDate ? new Date(order.orderDate).toLocaleDateString('en-IN') : '—'}</p>
-        <p class="meta"><strong>Status:</strong> ${STATUS_CONFIG[order.status]?.label ?? order.status}</p>
-        <p class="meta"><strong>Payment:</strong> ${order.paymentMethod || '—'}</p>
-        <p class="meta"><strong>Address:</strong> ${order.shippingAddress || '—'}</p>
-        ${order.trackingNumber ? `<p class="meta"><strong>Tracking:</strong> ${order.trackingNumber}</p>` : ''}
+    const orderId   = order.id?.slice(-8).toUpperCase();
+    const orderDate = order.orderDate ? new Date(order.orderDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8"/>
+<title>Invoice #${orderId} — Sandhya Fashion</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f8fafc;color:#0f172a;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .page{max-width:780px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 40px rgba(0,0,0,0.08)}
+
+  /* Header */
+  .header{background:linear-gradient(135deg,#064e3b 0%,#065f46 50%,#047857 100%);padding:40px 48px;display:flex;justify-content:space-between;align-items:flex-start}
+  .brand-name{font-size:26px;font-weight:900;color:#fff;letter-spacing:-0.5px}
+  .brand-sub{font-size:12px;color:#6ee7b7;font-weight:600;margin-top:4px;letter-spacing:0.05em;text-transform:uppercase}
+  .invoice-label{text-align:right}
+  .invoice-title{font-size:32px;font-weight:900;color:#fff;letter-spacing:-1px}
+  .invoice-num{font-size:13px;color:#6ee7b7;font-weight:700;margin-top:6px;letter-spacing:0.08em}
+
+  /* Meta strip */
+  .meta-strip{background:#f0fdf4;border-bottom:1px solid #d1fae5;padding:20px 48px;display:flex;gap:40px;flex-wrap:wrap}
+  .meta-item label{display:block;font-size:10px;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px}
+  .meta-item span{font-size:14px;font-weight:700;color:#111827}
+  .status-badge{display:inline-block;background:#d1fae5;color:#065f46;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.08em}
+
+  /* Body */
+  .body{padding:40px 48px}
+
+  /* Addresses */
+  .addresses{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:36px}
+  .addr-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px}
+  .addr-box h4{font-size:10px;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px}
+  .addr-box p{font-size:13px;color:#374151;font-weight:500;line-height:1.6}
+  .addr-box .name{font-size:15px;font-weight:800;color:#111827;margin-bottom:4px}
+
+  /* Items table */
+  .table-wrap{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:28px}
+  table{width:100%;border-collapse:collapse}
+  thead tr{background:#f8fafc}
+  th{padding:12px 16px;text-align:left;font-size:10px;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid #e2e8f0}
+  th:last-child,td:last-child{text-align:right}
+  td{padding:14px 16px;font-size:13px;color:#374151;border-bottom:1px solid #f1f5f9;font-weight:500}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#fafafa}
+  .product-name{font-weight:700;color:#111827}
+  .amount{font-weight:800;color:#111827}
+
+  /* Totals */
+  .totals{display:flex;justify-content:flex-end;margin-bottom:36px}
+  .totals-box{width:300px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}
+  .total-row{display:flex;justify-content:space-between;padding:10px 18px;font-size:13px;border-bottom:1px solid #f1f5f9}
+  .total-row:last-child{border-bottom:none}
+  .total-row span:first-child{color:#6b7280;font-weight:500}
+  .total-row span:last-child{font-weight:700;color:#111827}
+  .total-row.grand{background:#064e3b;padding:14px 18px}
+  .total-row.grand span{color:#fff!important;font-size:15px;font-weight:900}
+
+  /* Footer */
+  .footer{background:#f8fafc;border-top:1px solid #e2e8f0;padding:24px 48px;display:flex;justify-content:space-between;align-items:center}
+  .footer-left p{font-size:12px;color:#6b7280;font-weight:500;line-height:1.6}
+  .footer-right{text-align:right}
+  .footer-right p{font-size:11px;color:#9ca3af;font-weight:500}
+  .thank-you{font-size:14px;font-weight:800;color:#065f46;margin-bottom:4px}
+
+  /* Watermark for paid */
+  .paid-stamp{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:80px;font-weight:900;color:rgba(16,185,129,0.06);letter-spacing:8px;pointer-events:none;white-space:nowrap}
+
+  @media print{
+    body{background:#fff}
+    .page{margin:0;border-radius:0;box-shadow:none}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="brand-name">Sandhya Fashion</div>
+      <div class="brand-sub">Wholesale · Surat, Gujarat</div>
+    </div>
+    <div class="invoice-label">
+      <div class="invoice-title">INVOICE</div>
+      <div class="invoice-num">#${orderId}</div>
+    </div>
+  </div>
+
+  <!-- Meta strip -->
+  <div class="meta-strip">
+    <div class="meta-item">
+      <label>Invoice Date</label>
+      <span>${orderDate}</span>
+    </div>
+    <div class="meta-item">
+      <label>Order ID</label>
+      <span>#${orderId}</span>
+    </div>
+    <div class="meta-item">
+      <label>Payment Method</label>
+      <span>${order.paymentMethod || '—'}</span>
+    </div>
+    <div class="meta-item">
+      <label>Status</label>
+      <span class="status-badge">${STATUS_CONFIG[order.status]?.label ?? order.status}</span>
+    </div>
+    ${order.trackingNumber ? `<div class="meta-item"><label>Tracking No.</label><span>${order.trackingNumber}</span></div>` : ''}
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- Addresses -->
+    <div class="addresses">
+      <div class="addr-box">
+        <h4>From</h4>
+        <p class="name">Sandhya Fashion</p>
+        <p>Shop No. B/5083, Upper Ground Floor<br/>Global Textile Market<br/>Surat 395010, Gujarat</p>
+        <p style="margin-top:8px;font-size:12px;color:#6b7280">+91 7574927364</p>
       </div>
-      <table><thead><tr><th>Product</th><th>Size</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
-      <tbody>${(order.items || []).map(i => `<tr>
-        <td style="font-weight:500">${i.productName || i.productId}</td>
-        <td>${i.selectedSize || '—'}</td><td>${i.quantity}</td>
-        <td>₹${i.unitPrice?.toFixed(2) ?? '—'}</td>
-        <td style="font-weight:600">₹${i.totalPrice?.toFixed(2) ?? '—'}</td>
-      </tr>`).join('')}</tbody></table>
-      <div style="margin-top:32px;text-align:right">
-        <div class="row"><span>Subtotal</span><span>₹${sub.toFixed(2)}</span></div>
-        <div class="row"><span>GST (5%)</span><span>₹${gst.toFixed(2)}</span></div>
-        <div class="row"><span>Platform Charges (2%)</span><span>₹${plat.toFixed(2)}</span></div>
-        <div class="total"><span>Total Paid</span><span style="color:#059669">₹${grand.toFixed(2)}</span></div>
-      </div></body></html>`);
+      <div class="addr-box">
+        <h4>Ship To</h4>
+        <p class="name">${order.userId || 'Customer'}</p>
+        <p>${order.shippingAddress || '—'}</p>
+      </div>
+    </div>
+
+    <!-- Items table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40%">Product</th>
+            <th>Size</th>
+            <th>Qty</th>
+            <th>Unit Price</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${(order.items || []).map((item, idx) => `
+          <tr>
+            <td><span class="product-name">${item.productName || item.productId || '—'}</span></td>
+            <td>${item.selectedSize || '—'}</td>
+            <td>${item.quantity}</td>
+            <td>₹${item.unitPrice?.toFixed(2) ?? '—'}</td>
+            <td class="amount">₹${item.totalPrice?.toFixed(2) ?? '—'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Totals -->
+    <div class="totals">
+      <div class="totals-box">
+        <div class="total-row"><span>Subtotal</span><span>₹${sub.toFixed(2)}</span></div>
+        <div class="total-row"><span>GST (5%)</span><span>₹${gst.toFixed(2)}</span></div>
+        <div class="total-row"><span>Platform Charges (2%)</span><span>₹${plat.toFixed(2)}</span></div>
+        <div class="total-row grand"><span>Total Paid</span><span>₹${grand.toFixed(2)}</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-left">
+      <p class="thank-you">Thank you for your business!</p>
+      <p>For queries: Sandhyafashion39@gmail.com · +91 7574927364</p>
+    </div>
+    <div class="footer-right">
+      <p>This is a computer-generated invoice.</p>
+      <p>No signature required.</p>
+    </div>
+  </div>
+
+</div>
+<script>window.onload=()=>window.print();</script>
+</body></html>`);
     win.document.close();
-    win.print();
   };
 
   const handleRetry = async (order) => {
@@ -203,28 +350,56 @@ const MyOrders = () => {
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {/* ── Header ── */}
-      <div className="bg-white border-b border-gray-100 sticky top-0 md:top-[72px] z-40 shadow-sm">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors">
-            <ArrowLeft size={20} />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-xl font-extrabold text-gray-900">My Orders</h1>
-            {!loading && orders.length > 0 && (
-              <p className="text-xs text-gray-400 font-medium">{orders.length} order{orders.length !== 1 ? 's' : ''}</p>
+      {/* ── Hero Header ── */}
+      <div className="relative bg-gray-950 overflow-hidden">
+        {/* Orbs */}
+        <div className="absolute top-0 left-1/3 w-80 h-80 bg-emerald-600/20 rounded-full blur-[100px]" />
+        <div className="absolute bottom-0 right-1/4 w-56 h-56 bg-teal-600/15 rounded-full blur-[80px]" />
+        {/* Grid */}
+        <div className="absolute inset-0 opacity-[0.04]"
+          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)', backgroundSize: '48px 48px' }} />
+
+        <div className="relative max-w-2xl mx-auto px-4 pt-8 pb-16">
+          {/* Back + verifying */}
+          <div className="flex items-center justify-between mb-8">
+            <button onClick={() => navigate(-1)}
+              className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-semibold group">
+              <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" /> Back
+            </button>
+            {verifying && (
+              <div className="flex items-center gap-2 text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
+                <div className="w-3 h-3 border-2 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin" />
+                Verifying payment…
+              </div>
             )}
           </div>
-          {verifying && (
-            <div className="flex items-center gap-2 text-xs text-emerald-600 font-semibold bg-emerald-50 px-3 py-1.5 rounded-full">
-              <div className="w-3 h-3 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" />
-              Verifying payment…
+
+          {/* Title row */}
+          <div className="flex items-end justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                  <Package size={22} className="text-white" />
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">My Orders</h1>
+              </div>
+              <p className="text-gray-400 font-medium text-sm ml-1">
+                {!loading && orders.length > 0
+                  ? `${orders.length} order${orders.length !== 1 ? 's' : ''} · Track & manage your purchases`
+                  : 'Track and manage your purchases'}
+              </p>
             </div>
-          )}
+            {!loading && orders.length > 0 && (
+              <div className="hidden sm:flex flex-col items-end gap-1">
+                <span className="text-2xl font-black text-white">{orders.length}</span>
+                <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Total Orders</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="max-w-2xl mx-auto px-4 -mt-8 pb-12 space-y-4 relative z-10">
 
         {/* ── Just paid banner ── */}
         {justPaidOrder && (

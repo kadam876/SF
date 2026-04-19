@@ -121,6 +121,7 @@ const CartSidebar = () => {
     getSubtotal,
     getGST,
     getPlatformCharge,
+    getShipping,
     closeCart,
     checkout,
     loading,
@@ -385,6 +386,13 @@ const CartSidebar = () => {
                   <div className="flex justify-between text-gray-500">
                     <span>Platform Charges (2%)</span>
                     <span>₹{getPlatformCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500">
+                    <span className="flex items-center gap-1">
+                      Shipping
+                      <span className="text-[10px] text-gray-400 font-medium">(₹120/set)</span>
+                    </span>
+                    <span>₹{getShipping().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   {getTotalSavings() > 0 && (
                     <div className="flex justify-between text-emerald-600 text-xs font-semibold">

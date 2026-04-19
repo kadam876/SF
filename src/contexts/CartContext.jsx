@@ -217,6 +217,7 @@ export const CartProvider = ({ children }) => {
 
   const GST_RATE = 0.05;        // 5%
   const PLATFORM_RATE = 0.02;   // 2%
+  const SHIPPING_PER_SET = 120; // ₹120 per set/piece
 
   // For wholesale: price is per set; 1 set = piecesPerSet pieces (default 4)
   // So item subtotal = wholesalePrice * quantity (sets) — price already covers all sizes in a set
@@ -236,10 +237,14 @@ export const CartProvider = ({ children }) => {
     return price * sizesCount * item.quantity;
   };
 
+  // Total sets across all cart items (each quantity = 1 set)
+  const getTotalSets = () => cartItems.reduce((total, item) => total + item.quantity, 0);
+  const getShipping = () => getTotalSets() * SHIPPING_PER_SET;
+
   const getSubtotal = () => cartItems.reduce((total, item) => total + getItemSubtotal(item), 0);
   const getGST = () => getSubtotal() * GST_RATE;
   const getPlatformCharge = () => getSubtotal() * PLATFORM_RATE;
-  const getTotalPrice = () => getSubtotal() + getGST() + getPlatformCharge();
+  const getTotalPrice = () => getSubtotal() + getGST() + getPlatformCharge() + getShipping();
 
   const getTotalSavings = () => cartItems.reduce((total, item) => {
     const savings = (getItemOriginalPrice(item) - getItemPrice(item)) * item.quantity;
@@ -265,6 +270,7 @@ export const CartProvider = ({ children }) => {
       const subtotal = getSubtotal();
       const gst = getGST();
       const platformCharge = getPlatformCharge();
+      const shippingCharge = getShipping();
       const grandTotal = getTotalPrice();
 
       const orderItems = cartItems.map(item => ({
@@ -296,6 +302,7 @@ export const CartProvider = ({ children }) => {
         subtotal,
         gstAmount: gst,
         platformCharge,
+        shippingCharge,
         totalAmount: grandTotal,
         customerPhone: (phoneOverride || user?.phone || '').replace(/\D/g, '').slice(-10),
         customerEmail: user?.email || '',
@@ -431,7 +438,7 @@ export const CartProvider = ({ children }) => {
     cartItems, isCartOpen, checkoutStep, setCheckoutStep, loading, error,
     addToCart, removeFromCart, updateQuantity, clearCart, checkout, retryPayment,
     getTotalItems, getTotalPrice, getTotalSavings,
-    getSubtotal, getGST, getPlatformCharge, getItemSubtotal,
+    getSubtotal, getGST, getPlatformCharge, getShipping, getItemSubtotal,
     openCart, closeCart
   };
 
