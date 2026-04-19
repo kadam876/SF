@@ -14,7 +14,7 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   
   const [cartItems, setCartItems] = useState(() => {
     // For initial synchronous boot, check local storage (will be [] if logged in usually)
@@ -247,7 +247,11 @@ export const CartProvider = ({ children }) => {
         subtotal,
         gstAmount: gst,
         platformCharge,
-        totalAmount: grandTotal
+        totalAmount: grandTotal,
+        // Pass logged-in user's contact details so Cashfree gets correct customer info
+        customerPhone: user?.phone  || '',
+        customerEmail: user?.email  || '',
+        customerName:  user?.name   || '',
       };
 
       const response = await fetch(API_ENDPOINTS.ORDERS, {
