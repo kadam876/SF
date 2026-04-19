@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { load as loadCashfree } from '@cashfreepayments/cashfree-js';
 import { API_ENDPOINTS, getAuthHeaders, STORAGE_KEYS } from '../config';
 import { useAuth } from './AuthContext';
 
@@ -258,58 +259,54 @@ export const CartProvider = ({ children }) => {
       if (!response.ok) throw new Error('Failed to create order');
       const orderData = await response.json();
 
-      if (paymentMethod === 'RAZORPAY') {
+      // ── Cashfree online payment flow ──────────────────────────────────────
+      if (paymentMethod === 'CASHFREE') {
+        const { paymentSessionId, cashfreeOrderId } = orderData;
+        if (!paymentSessionId) throw new Error('Payment session could not be created.');
+
+        // Load Cashfree JS SDK and open the payment modal
+        const cashfree = await loadCashfree({
+          mode: import.meta.env.VITE_CASHFREE_ENV === 'PRODUCTION' ? 'production' : 'sandbox',
+        });
+
         return new Promise((resolve, reject) => {
-          const options = {
-            key: orderData.keyId,
-            amount: orderData.amount,
-            currency: "INR",
-            name: "Sandhya Fashion",
-            description: "Order Payment",
-            order_id: orderData.razorpayOrderId,
-            handler: async (response) => {
-              try {
-                const verifyRes = await fetch(`${API_ENDPOINTS.ORDERS}/verify-payment`, {
-                  method: 'POST',
-                  headers: getAuthHeaders(),
-                  body: JSON.stringify({
-                    razorpay_order_id: response.razorpay_order_id,
-                    razorpay_payment_id: response.razorpay_payment_id,
-                    razorpay_signature: response.razorpay_signature
-                  })
-                });
-
-                if (verifyRes.ok) {
-                  clearCart();
-                  resolve({ success: true, order: await verifyRes.json() });
-                } else {
-                  throw new Error('Payment verification failed');
-                }
-              } catch (err) {
-                reject(err);
-              }
-            },
-            prefill: {
-              name: "", // Can be filled if we have user info
-              email: "",
-              contact: ""
-            },
-            theme: {
-              color: "#00B67A"
-            },
-            modal: {
-              ondismiss: () => {
-                setLoading(false);
-                reject(new Error('Payment cancelled by user'));
-              }
+          cashfree.checkout({
+            paymentSessionId,
+            redirectTarget: '_modal',  // open as popup — no page redirect
+          }).then(async (result) => {
+            if (result.error) {
+              // User closed the modal or payment failed
+              setLoading(false);
+              reject(new Error(result.error.message || 'Payment cancelled or failed'));
+              return;
             }
-          };
 
-          const rzp = new window.Razorpay(options);
-          rzp.open();
+            // Payment completed — verify server-side before trusting the result
+            try {
+              const verifyRes = await fetch(API_ENDPOINTS.VERIFY_PAYMENT, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ cashfreeOrderId })
+              });
+
+              if (verifyRes.ok) {
+                clearCart();
+                resolve({ success: true, order: (await verifyRes.json()).order });
+              } else {
+                const errData = await verifyRes.json();
+                throw new Error(errData.error || 'Payment verification failed');
+              }
+            } catch (err) {
+              reject(err);
+            }
+          }).catch((err) => {
+            setLoading(false);
+            reject(err);
+          });
         });
       }
 
+      // ── COD or any other method ───────────────────────────────────────────
       clearCart();
       return { success: true, order: orderData };
     } catch (error) {
@@ -324,57 +321,54 @@ export const CartProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      if (!window.Razorpay) {
-        throw new Error('Razorpay SDK not loaded');
-      }
+      const { cashfreeOrderId } = order;
+      if (!cashfreeOrderId) throw new Error('No Cashfree order ID found for this order.');
+
+      // Load SDK and open modal with the already-created session
+      // Note: for retry we need a fresh payment_session_id — fetch from backend
+      const sessionRes = await fetch(API_ENDPOINTS.RETRY_SESSION, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ cashfreeOrderId })
+      });
+
+      if (!sessionRes.ok) throw new Error('Could not retrieve payment session.');
+      const { paymentSessionId } = await sessionRes.json();
+
+      const cashfree = await loadCashfree({
+        mode: import.meta.env.VITE_CASHFREE_ENV === 'PRODUCTION' ? 'production' : 'sandbox',
+      });
 
       return new Promise((resolve, reject) => {
-        const options = {
-          key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_Sdmxs3jbQIuXYr',
-          amount: Math.round(order.totalAmount * 100),
-          currency: "INR",
-          name: "Sandhya Fashion",
-          description: "Order Payment",
-          order_id: order.razorpayOrderId,
-          handler: async (response) => {
-            try {
-              const verifyRes = await fetch(`${API_ENDPOINTS.ORDERS}/verify-payment`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature
-                })
-              });
-
-              if (verifyRes.ok) {
-                resolve({ success: true, order: await verifyRes.json() });
-              } else {
-                throw new Error('Payment verification failed');
-              }
-            } catch (err) {
-              reject(err);
-            }
-          },
-          prefill: {
-            name: "",
-            email: "",
-            contact: ""
-          },
-          theme: {
-            color: "#00B67A"
-          },
-          modal: {
-            ondismiss: () => {
-              setLoading(false);
-              reject(new Error('Payment cancelled'));
-            }
+        cashfree.checkout({
+          paymentSessionId,
+          redirectTarget: '_modal',
+        }).then(async (result) => {
+          if (result.error) {
+            setLoading(false);
+            reject(new Error(result.error.message || 'Payment cancelled or failed'));
+            return;
           }
-        };
 
-        const rzp = new window.Razorpay(options);
-        rzp.open();
+          try {
+            const verifyRes = await fetch(API_ENDPOINTS.VERIFY_PAYMENT, {
+              method: 'POST',
+              headers: getAuthHeaders(),
+              body: JSON.stringify({ cashfreeOrderId })
+            });
+
+            if (verifyRes.ok) {
+              resolve({ success: true, order: (await verifyRes.json()).order });
+            } else {
+              throw new Error('Payment verification failed');
+            }
+          } catch (err) {
+            reject(err);
+          }
+        }).catch((err) => {
+          setLoading(false);
+          reject(err);
+        });
       });
     } catch (error) {
       setError(error.message);

@@ -9,7 +9,7 @@ const CartSidebar = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const [shippingAddress, setShippingAddress] = useState(user?.address || '');
-  const [paymentMethod, setPaymentMethod] = useState('RAZORPAY');
+  const [paymentMethod, setPaymentMethod] = useState('CASHFREE');
 
   const { 
     cartItems, 
@@ -206,9 +206,9 @@ const CartSidebar = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <button
-                      onClick={() => setPaymentMethod('RAZORPAY')}
+                      onClick={() => setPaymentMethod('CASHFREE')}
                       className={`px-3 py-4 text-xs font-black uppercase tracking-widest rounded-xl border transition-all ${
-                        paymentMethod === 'RAZORPAY'
+                        paymentMethod === 'CASHFREE'
                           ? 'bg-[#00B67A] text-white border-[#00B67A] shadow-lg shadow-emerald-500/20'
                           : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
                       }`}
@@ -227,8 +227,8 @@ const CartSidebar = () => {
                     </button>
                   </div>
                   <p className="text-[10px] text-gray-400 font-bold text-center uppercase tracking-tighter mb-1">
-                    {paymentMethod === 'RAZORPAY' 
-                      ? 'Secure payment via Razorpay'
+                    {paymentMethod === 'CASHFREE'
+                      ? 'Secure payment via Cashfree'
                       : 'Pay with cash upon delivery'}
                   </p>
                   <div className="flex justify-center items-center gap-4 py-2 border-t border-gray-50 mt-1">
@@ -236,7 +236,7 @@ const CartSidebar = () => {
                     <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Mastercard-logo.svg/1280px-Mastercard-logo.svg.png" alt="Mastercard" className="h-4 opacity-50 grayscale" />
                     <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/UPI-Logo.png/640px-UPI-Logo.png" alt="UPI" className="h-3 opacity-50 grayscale" />
                     <div className="h-3 w-[1px] bg-gray-200 mx-1"></div>
-                    <img src="https://instamojo-cdn2.s3.amazonaws.com/static/images/razorpay-logo.png" alt="Razorpay" className="h-3.5 opacity-70" />
+                    <img src="https://cashfreelogo.cashfree.com/cashfreepayments/logos/Color/Color@3x.png" alt="Cashfree" className="h-4 opacity-80" />
                   </div>
                 </div>
               </div>
@@ -296,9 +296,9 @@ const CartSidebar = () => {
                 <label className="block text-sm font-medium text-gray-700">Payment Method</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={() => setPaymentMethod('RAZORPAY')}
+                    onClick={() => setPaymentMethod('CASHFREE')}
                     className={`px-3 py-2 text-sm font-medium rounded-lg border transition-all ${
-                      paymentMethod === 'RAZORPAY'
+                      paymentMethod === 'CASHFREE'
                         ? 'bg-[#00B67A] text-white border-[#00B67A] shadow-sm'
                         : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
                     }`}

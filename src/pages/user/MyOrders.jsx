@@ -269,7 +269,7 @@ const MyOrders = () => {
                       </div>
                       
                       <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-                        {order.status === 'PENDING' && order.paymentMethod === 'RAZORPAY' && (
+                        {order.status === 'PENDING' && order.paymentMethod === 'CASHFREE' && (
                           <button
                             onClick={async () => {
                               setPayingOrderId(order.id);

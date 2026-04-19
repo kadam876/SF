@@ -38,6 +38,8 @@ export const API_ENDPOINTS = {
   ORDERS: `${API_BASE_URL}/orders`,
   ORDER_BY_ID: (id) => `${API_BASE_URL}/orders/${id}`,
   MY_ORDERS: `${API_BASE_URL}/orders/my-orders`,
+  VERIFY_PAYMENT: `${API_BASE_URL}/orders/verify-payment`,
+  RETRY_SESSION: `${API_BASE_URL}/orders/retry-session`,
   ORDERS_BY_STATUS: (status) => `${API_BASE_URL}/admin/orders/status/${status}`,
   UPDATE_ORDER_STATUS: (id) => `${API_BASE_URL}/orders/${id}/status`,
 
