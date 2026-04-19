@@ -260,7 +260,15 @@ export const CartProvider = ({ children }) => {
         body: JSON.stringify(orderRequest)
       });
 
-      if (!response.ok) throw new Error('Failed to create order');
+      if (!response.ok) {
+        // Read the real error from the server and surface it to the user
+        let errMsg = 'Failed to create order';
+        try {
+          const errData = await response.json();
+          errMsg = errData.error || errData.message || errMsg;
+        } catch (_) {}
+        throw new Error(errMsg);
+      }
       const orderData = await response.json();
 
       // ── Cashfree online payment flow ──────────────────────────────────────
