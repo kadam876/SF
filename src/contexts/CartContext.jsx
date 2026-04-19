@@ -124,49 +124,53 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const removeFromCart = async (itemId, selectedSize) => {
+  // Match a cart item by productId (handles both authenticated and guest carts)
+  const findCartItem = (cartItems, productId, selectedSize) =>
+    cartItems.find(item =>
+      (item.productId === productId || item.id === productId) &&
+      (item.isWholesale || item.selectedSize === selectedSize)
+    );
+
+  const removeFromCart = async (productId, selectedSize) => {
     if (isAuthenticated) {
-      // Find the specific Mongo CartItem ID based on the product match
-      const targetItem = cartItems.find(item => item.productId === itemId && (item.selectedSize === selectedSize || item.isWholesale));
-      if (targetItem && targetItem.id) {
-         try {
-           const res = await fetch(`${API_ENDPOINTS.CART}/${targetItem.id}`, {
-             method: 'DELETE',
-             headers: getAuthHeaders()
-           });
-           if (res.ok) {
-             const updatedCart = await res.json();
-             setCartItems(updatedCart);
-           }
-         } catch(e) {}
+      const targetItem = findCartItem(cartItems, productId, selectedSize);
+      if (targetItem?.id) {
+        try {
+          const res = await fetch(`${API_ENDPOINTS.CART}/${targetItem.id}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+          });
+          if (res.ok) setCartItems(await res.json());
+        } catch(e) {}
       }
     } else {
-      setCartItems(cartItems.filter(
-        item => !(item.productId === itemId && item.selectedSize === selectedSize)
+      setCartItems(prev => prev.filter(item =>
+        !((item.productId === productId || item.id === productId) &&
+          (item.isWholesale || item.selectedSize === selectedSize))
       ));
     }
   };
 
-  const updateQuantity = async (itemId, selectedSize, newQuantity) => {
+  const updateQuantity = async (productId, selectedSize, newQuantity) => {
     if (newQuantity <= 0) {
-      removeFromCart(itemId, selectedSize);
+      removeFromCart(productId, selectedSize);
       return;
     }
 
     if (isAuthenticated) {
-      const targetItem = cartItems.find(item => item.productId === itemId && (item.selectedSize === selectedSize || item.isWholesale));
-      if (targetItem && targetItem.id) {
-         try {
-           const res = await fetch(`${API_ENDPOINTS.CART}/${targetItem.id}/quantity?quantity=${newQuantity}`, {
-             method: 'PUT',
-             headers: getAuthHeaders()
-           });
-           if (res.ok) setCartItems(await res.json());
-         } catch(e) {}
+      const targetItem = findCartItem(cartItems, productId, selectedSize);
+      if (targetItem?.id) {
+        try {
+          const res = await fetch(`${API_ENDPOINTS.CART}/${targetItem.id}/quantity?quantity=${newQuantity}`, {
+            method: 'PUT',
+            headers: getAuthHeaders()
+          });
+          if (res.ok) setCartItems(await res.json());
+        } catch(e) {}
       }
     } else {
-      setCartItems(cartItems.map(item =>
-        item.productId === itemId && item.selectedSize === selectedSize
+      setCartItems(prev => prev.map(item =>
+        (item.productId === productId || item.id === productId) && item.selectedSize === selectedSize
           ? { ...item, quantity: newQuantity }
           : item
       ));
