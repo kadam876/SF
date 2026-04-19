@@ -219,7 +219,7 @@ export const CartProvider = ({ children }) => {
   };
   const closeCart = () => setIsCartOpen(false);
 
-  const checkout = async (shippingAddress, paymentMethod = 'COD') => {
+  const checkout = async (shippingAddress, paymentMethod = 'COD', phoneOverride = null) => {
     setLoading(true);
     setError(null);
     try {
@@ -241,10 +241,10 @@ export const CartProvider = ({ children }) => {
 
       // ── Guard: Cashfree requires a real phone number ──────────────────────
       if (paymentMethod === 'CASHFREE') {
-        const phone = user?.phone?.replace(/\D/g, '');
+        const phone = (phoneOverride || user?.phone || '').replace(/\D/g, '');
         if (!phone || phone.length < 10) {
           throw new Error(
-            'Your profile is missing a phone number. Please go to Profile → Edit and add your mobile number before paying online.'
+            'Your profile is missing a phone number. Please enter your 10-digit mobile number to pay online.'
           );
         }
       }
@@ -258,8 +258,7 @@ export const CartProvider = ({ children }) => {
         gstAmount: gst,
         platformCharge,
         totalAmount: grandTotal,
-        // Real customer details from logged-in user
-        customerPhone: user?.phone || '',
+        customerPhone: (phoneOverride || user?.phone || '').replace(/\D/g, '').slice(-10),
         customerEmail: user?.email || '',
         customerName:  user?.name  || '',
       };
@@ -271,7 +270,6 @@ export const CartProvider = ({ children }) => {
       });
 
       if (!response.ok) {
-        // Read the real error from the server and surface it to the user
         let errMsg = 'Failed to create order';
         try {
           const errData = await response.json();
@@ -286,50 +284,44 @@ export const CartProvider = ({ children }) => {
         const { paymentSessionId, cashfreeOrderId } = orderData;
         if (!paymentSessionId) throw new Error('Payment session could not be created.');
 
-        // Load Cashfree JS SDK and open the payment modal
         const cashfree = await loadCashfree({
           mode: import.meta.env.VITE_CASHFREE_ENV === 'PRODUCTION' ? 'production' : 'sandbox',
         });
 
-        return new Promise((resolve, reject) => {
-          cashfree.checkout({
+        // Await the modal result — keep loading=true until fully done
+        let checkoutResult;
+        try {
+          checkoutResult = await cashfree.checkout({
             paymentSessionId,
-            redirectTarget: '_modal',  // open as popup — no page redirect
-          }).then(async (result) => {
-            if (result.error) {
-              // User closed the modal or payment failed
-              setLoading(false);
-              reject(new Error(result.error.message || 'Payment cancelled or failed'));
-              return;
-            }
-
-            // Payment completed — verify server-side before trusting the result
-            try {
-              const verifyRes = await fetch(API_ENDPOINTS.VERIFY_PAYMENT, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ cashfreeOrderId })
-              });
-
-              if (verifyRes.ok) {
-                clearCart();
-                resolve({ success: true, order: (await verifyRes.json()).order });
-              } else {
-                const errData = await verifyRes.json();
-                throw new Error(errData.error || 'Payment verification failed');
-              }
-            } catch (err) {
-              reject(err);
-            }
-          }).catch((err) => {
-            setLoading(false);
-            reject(err);
+            redirectTarget: '_modal',
           });
+        } catch (err) {
+          throw new Error(err?.message || 'Payment modal failed to open');
+        }
+
+        if (checkoutResult?.error) {
+          throw new Error(checkoutResult.error.message || 'Payment cancelled or failed');
+        }
+
+        // Verify server-side
+        const verifyRes = await fetch(API_ENDPOINTS.VERIFY_PAYMENT, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ cashfreeOrderId })
         });
+
+        if (!verifyRes.ok) {
+          const errData = await verifyRes.json().catch(() => ({}));
+          throw new Error(errData.error || 'Payment verification failed');
+        }
+
+        const verifyData = await verifyRes.json();
+        await clearCart();
+        return { success: true, order: verifyData.order };
       }
 
       // ── COD or any other method ───────────────────────────────────────────
-      clearCart();
+      await clearCart();
       return { success: true, order: orderData };
     } catch (error) {
       setError(error.message);
@@ -346,8 +338,6 @@ export const CartProvider = ({ children }) => {
       const { cashfreeOrderId } = order;
       if (!cashfreeOrderId) throw new Error('No Cashfree order ID found for this order.');
 
-      // Load SDK and open modal with the already-created session
-      // Note: for retry we need a fresh payment_session_id — fetch from backend
       const sessionRes = await fetch(API_ENDPOINTS.RETRY_SESSION, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -355,43 +345,41 @@ export const CartProvider = ({ children }) => {
       });
 
       if (!sessionRes.ok) throw new Error('Could not retrieve payment session.');
-      const { paymentSessionId } = await sessionRes.json();
+      const { paymentSessionId, cashfreeOrderId: newCfOrderId } = await sessionRes.json();
 
       const cashfree = await loadCashfree({
         mode: import.meta.env.VITE_CASHFREE_ENV === 'PRODUCTION' ? 'production' : 'sandbox',
       });
 
-      return new Promise((resolve, reject) => {
-        cashfree.checkout({
+      let checkoutResult;
+      try {
+        checkoutResult = await cashfree.checkout({
           paymentSessionId,
           redirectTarget: '_modal',
-        }).then(async (result) => {
-          if (result.error) {
-            setLoading(false);
-            reject(new Error(result.error.message || 'Payment cancelled or failed'));
-            return;
-          }
-
-          try {
-            const verifyRes = await fetch(API_ENDPOINTS.VERIFY_PAYMENT, {
-              method: 'POST',
-              headers: getAuthHeaders(),
-              body: JSON.stringify({ cashfreeOrderId })
-            });
-
-            if (verifyRes.ok) {
-              resolve({ success: true, order: (await verifyRes.json()).order });
-            } else {
-              throw new Error('Payment verification failed');
-            }
-          } catch (err) {
-            reject(err);
-          }
-        }).catch((err) => {
-          setLoading(false);
-          reject(err);
         });
+      } catch (err) {
+        throw new Error(err?.message || 'Payment modal failed to open');
+      }
+
+      if (checkoutResult?.error) {
+        throw new Error(checkoutResult.error.message || 'Payment cancelled or failed');
+      }
+
+      // Use the new cashfreeOrderId returned by retrySession (backend may have rotated it)
+      const verifyId = newCfOrderId || cashfreeOrderId;
+      const verifyRes = await fetch(API_ENDPOINTS.VERIFY_PAYMENT, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ cashfreeOrderId: verifyId })
       });
+
+      if (!verifyRes.ok) {
+        const errData = await verifyRes.json().catch(() => ({}));
+        throw new Error(errData.error || 'Payment verification failed');
+      }
+
+      const verifyData = await verifyRes.json();
+      return { success: true, order: verifyData.order };
     } catch (error) {
       setError(error.message);
       return { success: false, error: error.message };

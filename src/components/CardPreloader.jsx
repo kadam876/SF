@@ -5,32 +5,26 @@ const CardPreloader = ({ imageUrl, children }) => {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    // If no imageUrl is provided, we fail gracefully and just show the card
+    // Reset on every imageUrl change
+    setIsLoaded(false);
+
     if (!imageUrl) {
       setIsLoaded(true);
       return;
     }
-    
+
     let isMounted = true;
     const img = new Image();
-    
-    img.onload = () => {
-      if (isMounted) setIsLoaded(true);
-    };
-    img.onerror = () => {
-      if (isMounted) setIsLoaded(true); 
-    };
-    
+
+    img.onload = () => { if (isMounted) setIsLoaded(true); };
+    img.onerror = () => { if (isMounted) setIsLoaded(true); };
+
     img.src = imageUrl;
 
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [imageUrl]);
 
-  if (!isLoaded) {
-    return <ProductCardSkeleton />;
-  }
+  if (!isLoaded) return <ProductCardSkeleton />;
 
   return children;
 };

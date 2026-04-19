@@ -90,7 +90,7 @@ const needsPayment = (order) =>
 const MyOrders = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { retryPayment } = useCart();
+  const { retryPayment, clearCart } = useCart();
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -132,6 +132,8 @@ const MyOrders = () => {
 
           if (verifyRes.ok && verifyData.success) {
             setJustPaidOrder(verifyData.order);
+            // Clear the cart since payment was confirmed
+            clearCart();
           }
           // If not ok, payment wasn't successful — we still show orders normally
         } catch {
