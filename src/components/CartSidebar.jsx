@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Plus, Minus, Trash2, ShoppingBag, Phone, CheckCircle, Sparkles, Package } from 'lucide-react';
+import { X, Plus, Minus, Trash2, ShoppingBag, Phone, CheckCircle, Sparkles, Package, Loader2 } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -423,7 +423,8 @@ const CartSidebar = () => {
                   <div className="flex gap-3">
                     <button
                       onClick={checkoutStep === 1 ? clearCart : () => setCheckoutStep(1)}
-                      className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors font-bold text-sm"
+                      disabled={loading}
+                      className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors font-bold text-sm disabled:opacity-40"
                     >
                       {checkoutStep === 1 ? 'Clear Cart' : 'Back'}
                     </button>
@@ -469,9 +470,14 @@ const CartSidebar = () => {
                           setSuccessOrder(result.order);
                         }
                       }}
-                      className="flex-[2] py-3 bg-[#00B67A] text-white rounded-xl hover:bg-emerald-600 hover:shadow-lg hover:shadow-emerald-500/30 transition-all font-black text-sm disabled:opacity-60 disabled:cursor-not-allowed uppercase tracking-wider"
+                      className="flex-[2] py-3 bg-[#00B67A] text-white rounded-xl hover:bg-emerald-600 hover:shadow-lg hover:shadow-emerald-500/30 transition-all font-black text-sm disabled:opacity-60 disabled:cursor-not-allowed uppercase tracking-wider flex items-center justify-center gap-2"
                     >
-                      {loading ? 'Processing…' : checkoutStep === 1 ? 'Proceed to Checkout' : 'Place Order'}
+                      {loading ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          {paymentMethod === 'CASHFREE' ? 'Opening Payment…' : 'Placing Order…'}
+                        </>
+                      ) : checkoutStep === 1 ? 'Proceed to Checkout' : 'Place Order'}
                     </button>
                   </div>
                 </>

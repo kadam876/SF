@@ -133,7 +133,7 @@ const Shop = () => {
   const handleBuyNow = (product) => {
     const size = product.sizes?.length > 0 ? product.sizes[0] : 'M';
     addToCart(product, size, 1);
-    openCart(2); // Step 2 is Checkout Details
+    openCart(1); // always show cart first so user can review
   };
 
   const formatPrice = (price) =>

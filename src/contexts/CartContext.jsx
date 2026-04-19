@@ -249,6 +249,12 @@ export const CartProvider = ({ children }) => {
   const openCart = (step = 1) => {
     setCheckoutStep(step);
     setIsCartOpen(true);
+    // Pre-warm Cashfree SDK in background so it's ready when user hits Place Order
+    if (isAuthenticated) {
+      loadCashfree({
+        mode: import.meta.env.VITE_CASHFREE_ENV === 'PRODUCTION' ? 'production' : 'sandbox',
+      }).catch(() => {});
+    }
   };
   const closeCart = () => setIsCartOpen(false);
 
