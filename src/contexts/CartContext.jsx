@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { load as loadCashfree } from '@cashfreepayments/cashfree-js';
 import { API_ENDPOINTS, getAuthHeaders, STORAGE_KEYS } from '../config';
 import { useAuth } from './AuthContext';
@@ -33,6 +33,9 @@ export const CartProvider = ({ children }) => {
   const [checkoutStep, setCheckoutStep] = useState(1); // 1: Cart, 2: Checkout
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Debounce timers: key = `${mongoCartItemId}`, value = setTimeout handle
+  const qtyDebounceRef = useRef({});
 
   // Synchronization with Backend / Auth Changes
   useEffect(() => {
@@ -83,6 +86,14 @@ export const CartProvider = ({ children }) => {
     }
   }, [cartItems, isAuthenticated]);
 
+  // Flush all pending debounced syncs on unmount
+  useEffect(() => {
+    const timers = qtyDebounceRef.current;
+    return () => {
+      Object.values(timers).forEach(clearTimeout);
+    };
+  }, []);
+
   const addToCart = async (product, selectedSize, quantity = 1) => {
     const { image, ...cleanProduct } = product; // Strip heavy base64
     const itemData = {
@@ -125,56 +136,77 @@ export const CartProvider = ({ children }) => {
   };
 
   // Match a cart item by productId (handles both authenticated and guest carts)
-  const findCartItem = (cartItems, productId, selectedSize) =>
-    cartItems.find(item =>
+  const findCartItem = (items, productId, selectedSize) =>
+    items.find(item =>
       (item.productId === productId || item.id === productId) &&
       (item.isWholesale || item.selectedSize === selectedSize)
     );
 
   const removeFromCart = async (productId, selectedSize) => {
+    // Optimistic: remove from UI immediately
+    setCartItems(prev => {
+      const target = findCartItem(prev, productId, selectedSize);
+      // Cancel any pending debounced sync for this item
+      if (target?.id && qtyDebounceRef.current[target.id]) {
+        clearTimeout(qtyDebounceRef.current[target.id]);
+        delete qtyDebounceRef.current[target.id];
+      }
+      return prev.filter(item =>
+        !((item.productId === productId || item.id === productId) &&
+          (item.isWholesale || item.selectedSize === selectedSize))
+      );
+    });
+
     if (isAuthenticated) {
-      const targetItem = findCartItem(cartItems, productId, selectedSize);
-      if (targetItem?.id) {
+      // Find the mongo id from the current snapshot (before state update settles)
+      const target = findCartItem(cartItems, productId, selectedSize);
+      if (target?.id) {
         try {
-          const res = await fetch(`${API_ENDPOINTS.CART}/${targetItem.id}`, {
+          await fetch(`${API_ENDPOINTS.CART}/${target.id}`, {
             method: 'DELETE',
             headers: getAuthHeaders()
           });
-          if (res.ok) setCartItems(await res.json());
+          // No need to setCartItems from response — optimistic already correct
         } catch(e) {}
       }
-    } else {
-      setCartItems(prev => prev.filter(item =>
-        !((item.productId === productId || item.id === productId) &&
-          (item.isWholesale || item.selectedSize === selectedSize))
-      ));
     }
   };
 
-  const updateQuantity = async (productId, selectedSize, newQuantity) => {
+  const updateQuantity = (productId, selectedSize, newQuantity) => {
     if (newQuantity <= 0) {
       removeFromCart(productId, selectedSize);
       return;
     }
 
-    if (isAuthenticated) {
-      const targetItem = findCartItem(cartItems, productId, selectedSize);
-      if (targetItem?.id) {
-        try {
-          const res = await fetch(`${API_ENDPOINTS.CART}/${targetItem.id}/quantity?quantity=${newQuantity}`, {
-            method: 'PUT',
-            headers: getAuthHeaders()
-          });
-          if (res.ok) setCartItems(await res.json());
-        } catch(e) {}
-      }
-    } else {
-      setCartItems(prev => prev.map(item =>
-        (item.productId === productId || item.id === productId) && item.selectedSize === selectedSize
-          ? { ...item, quantity: newQuantity }
-          : item
-      ));
+    // Optimistic: update UI instantly
+    setCartItems(prev => prev.map(item =>
+      (item.productId === productId || item.id === productId) &&
+      (item.isWholesale || item.selectedSize === selectedSize)
+        ? { ...item, quantity: newQuantity }
+        : item
+    ));
+
+    if (!isAuthenticated) return; // localStorage sync handled by the useEffect
+
+    // Debounce the server call — only fire after 800ms of no further changes
+    const target = findCartItem(cartItems, productId, selectedSize);
+    if (!target?.id) return;
+
+    const mongoId = target.id;
+    if (qtyDebounceRef.current[mongoId]) {
+      clearTimeout(qtyDebounceRef.current[mongoId]);
     }
+
+    qtyDebounceRef.current[mongoId] = setTimeout(async () => {
+      delete qtyDebounceRef.current[mongoId];
+      try {
+        await fetch(`${API_ENDPOINTS.CART}/${mongoId}/quantity?quantity=${newQuantity}`, {
+          method: 'PUT',
+          headers: getAuthHeaders()
+        });
+        // Server is now in sync — no need to re-fetch, optimistic state is correct
+      } catch(e) {}
+    }, 800);
   };
 
   const clearCart = async () => {
