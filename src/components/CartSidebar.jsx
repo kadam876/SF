@@ -202,9 +202,18 @@ const CartSidebar = () => {
             {checkoutStep === 1 && (
               <div className="flex-1 overflow-y-auto p-4">
                 {cartItems.length === 0 ? (
-                  <div className="text-center py-16">
-                    <ShoppingBag size={52} className="mx-auto text-gray-200 mb-4" />
-                    <p className="text-gray-400 font-medium">Your cart is empty</p>
+                  <div className="flex flex-col items-center justify-center h-full py-16 text-center">
+                    <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-5 border-2 border-dashed border-gray-200">
+                      <ShoppingBag size={40} className="text-gray-300" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-1">Your cart is empty</h3>
+                    <p className="text-sm text-gray-400 mb-6 max-w-[200px]">Add some products to get started</p>
+                    <button
+                      onClick={() => { closeCart(); navigate('/shop'); }}
+                      className="px-6 py-3 bg-[#00B67A] text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-500/20"
+                    >
+                      Browse Shop
+                    </button>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -392,80 +401,90 @@ const CartSidebar = () => {
             )}
 
             {/* ── Footer ── */}
-            {cartItems.length > 0 && (
-              <div className="flex-shrink-0 border-t border-gray-100 p-4 space-y-3 bg-white">
-                {/* Mini total in step 1 */}
-                {checkoutStep === 1 && (
-                  <div className="flex justify-between items-center px-1">
-                    <span className="text-sm text-gray-500 font-medium">
-                      {cartItems.reduce((s, i) => s + i.quantity, 0)} item(s)
-                    </span>
-                    <span className="text-base font-black text-gray-900">
-                      ₹{getTotalPrice().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                )}
+            <div className="flex-shrink-0 border-t border-gray-100 p-4 space-y-3 bg-white">
+              {cartItems.length > 0 ? (
+                <>
+                  {/* Mini total in step 1 */}
+                  {checkoutStep === 1 && (
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-sm text-gray-500 font-medium">
+                        {cartItems.reduce((s, i) => s + i.quantity, 0)} item(s)
+                      </span>
+                      <span className="text-base font-black text-gray-900">
+                        ₹{getTotalPrice().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
 
-                {checkoutError && (
-                  <p className="text-xs text-red-600 font-medium bg-red-50 px-3 py-2 rounded-lg">{checkoutError}</p>
-                )}
+                  {checkoutError && (
+                    <p className="text-xs text-red-600 font-medium bg-red-50 px-3 py-2 rounded-lg">{checkoutError}</p>
+                  )}
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={checkoutStep === 1 ? clearCart : () => setCheckoutStep(1)}
-                    className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors font-bold text-sm"
-                  >
-                    {checkoutStep === 1 ? 'Clear Cart' : 'Back'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={async () => {
-                      if (!isAuthenticated) {
-                        navigate('/login');
-                        closeCart();
-                        return;
-                      }
-
-                      if (checkoutStep === 1) {
-                        setCheckoutStep(2);
-                        return;
-                      }
-
-                      const addr = shippingAddress.trim() || user?.address || '';
-                      if (!addr) {
-                        alert('Please provide a shipping address.');
-                        return;
-                      }
-
-                      let effectivePhone = user?.phone || phoneInput;
-                      const cleanPhone = effectivePhone?.replace(/\D/g, '') || '';
-
-                      if (paymentMethod === 'CASHFREE' && !user?.phone) {
-                        if (!cleanPhone || cleanPhone.length < 10) {
-                          alert('Please enter your 10-digit mobile number to continue with online payment.');
+                  <div className="flex gap-3">
+                    <button
+                      onClick={checkoutStep === 1 ? clearCart : () => setCheckoutStep(1)}
+                      className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors font-bold text-sm"
+                    >
+                      {checkoutStep === 1 ? 'Clear Cart' : 'Back'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={async () => {
+                        if (!isAuthenticated) {
+                          navigate('/login');
+                          closeCart();
                           return;
                         }
-                        await updateProfile({ phone: cleanPhone });
-                        effectivePhone = cleanPhone;
-                      }
 
-                      const result = await checkout(addr, paymentMethod, effectivePhone || null);
-                      if (result?.success) {
-                        setShippingAddress('');
-                        setPhoneInput('');
-                        setCheckoutStep(1);
-                        closeCart();
-                        setSuccessOrder(result.order); // show overlay
-                      }
-                    }}
-                    className="flex-2 flex-[2] py-3 bg-[#00B67A] text-white rounded-xl hover:bg-emerald-600 hover:shadow-lg hover:shadow-emerald-500/30 transition-all font-black text-sm disabled:opacity-60 disabled:cursor-not-allowed uppercase tracking-wider"
-                  >
-                    {loading ? 'Processing…' : checkoutStep === 1 ? 'Proceed to Checkout' : 'Place Order'}
-                  </button>
-                </div>
-              </div>
-            )}
+                        if (checkoutStep === 1) {
+                          setCheckoutStep(2);
+                          return;
+                        }
+
+                        const addr = shippingAddress.trim() || user?.address || '';
+                        if (!addr) {
+                          alert('Please provide a shipping address.');
+                          return;
+                        }
+
+                        let effectivePhone = user?.phone || phoneInput;
+                        const cleanPhone = effectivePhone?.replace(/\D/g, '') || '';
+
+                        if (paymentMethod === 'CASHFREE' && !user?.phone) {
+                          if (!cleanPhone || cleanPhone.length < 10) {
+                            alert('Please enter your 10-digit mobile number to continue with online payment.');
+                            return;
+                          }
+                          await updateProfile({ phone: cleanPhone });
+                          effectivePhone = cleanPhone;
+                        }
+
+                        const result = await checkout(addr, paymentMethod, effectivePhone || null);
+                        if (result?.success) {
+                          setShippingAddress('');
+                          setPhoneInput('');
+                          setCheckoutStep(1);
+                          closeCart();
+                          setSuccessOrder(result.order);
+                        }
+                      }}
+                      className="flex-[2] py-3 bg-[#00B67A] text-white rounded-xl hover:bg-emerald-600 hover:shadow-lg hover:shadow-emerald-500/30 transition-all font-black text-sm disabled:opacity-60 disabled:cursor-not-allowed uppercase tracking-wider"
+                    >
+                      {loading ? 'Processing…' : checkoutStep === 1 ? 'Proceed to Checkout' : 'Place Order'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* Empty cart footer — just a close button */
+                <button
+                  onClick={closeCart}
+                  className="w-full py-3 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors font-bold text-sm"
+                >
+                  Close
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
