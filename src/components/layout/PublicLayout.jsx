@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   ShoppingCart, Menu, X, User, LogOut, ChevronDown,
   Package, Settings, Instagram, Facebook, Phone, Mail,
-  MapPin, Search, Sparkles,
+  MapPin, Search,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -69,16 +69,7 @@ const PublicLayout = () => {
   return (
     <div className="flex flex-col min-h-screen bg-white">
 
-      {/* ── Static announcement bar (not inside fixed header) ── */}
-      {!scrolled && (
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-center py-2 text-xs font-semibold tracking-wide z-40 relative">
-          <span className="flex items-center justify-center gap-2">
-            <Sparkles size={11} />
-            Free shipping on orders above ₹5,000 · Wholesale prices direct from factory
-            <Sparkles size={11} />
-          </span>
-        </div>
-      )}
+
 
       {/* ══════════════════════════════════════════════════════
           NAVBAR
