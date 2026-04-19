@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS, getAuthHeaders, DEFAULT_CATALOGUE_IMAGE_URL } from '../../config';
+import { cachedFetch } from '../../utils/apiCache';
 import { CLOTH_CATEGORIES } from '../../data/clothCategories';
 import { useCart } from '../../contexts/CartContext';
 import { Camera, ShoppingCart, Star, ArrowRight, ShieldCheck, TrendingUp, Zap } from 'lucide-react';
@@ -25,13 +26,10 @@ const Landing = () => {
     const loadBestsellers = async () => {
       setBestsellersLoading(true);
       try {
-        const response = await fetch(`${API_ENDPOINTS.PRODUCTS}?page=0&size=20`, {
+        const json = await cachedFetch(`${API_ENDPOINTS.PRODUCTS}?page=0&size=20`, {
           headers: getAuthHeaders(),
         });
 
-        if (!response.ok) throw new Error('Failed to fetch products');
-
-        const json = await response.json();
         if (cancelled) return;
 
         const list = Array.isArray(json) ? json : (json.content || []);
@@ -44,6 +42,8 @@ const Landing = () => {
 
         const top = sorted.slice(0, BEST_SELLER_COUNT);
         setBestsellers(top);
+      } catch {
+        // silent - landing page shows empty state gracefully
       } finally {
         if (!cancelled) setBestsellersLoading(false);
       }
