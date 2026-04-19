@@ -239,6 +239,16 @@ export const CartProvider = ({ children }) => {
         sizesCount: item.isWholesale ? (item.piecesPerSet || 4) : (item.piecesPerSet || item.sizes?.length || 4)
       }));
 
+      // ── Guard: Cashfree requires a real phone number ──────────────────────
+      if (paymentMethod === 'CASHFREE') {
+        const phone = user?.phone?.replace(/\D/g, '');
+        if (!phone || phone.length < 10) {
+          throw new Error(
+            'Your profile is missing a phone number. Please go to Profile → Edit and add your mobile number before paying online.'
+          );
+        }
+      }
+
       const orderRequest = {
         items: orderItems,
         orderType: cartItems.some(item => item.isWholesale) ? 'WHOLESALE' : 'RETAIL',
@@ -248,10 +258,10 @@ export const CartProvider = ({ children }) => {
         gstAmount: gst,
         platformCharge,
         totalAmount: grandTotal,
-        // Pass logged-in user's contact details so Cashfree gets correct customer info
-        customerPhone: user?.phone  || '',
-        customerEmail: user?.email  || '',
-        customerName:  user?.name   || '',
+        // Real customer details from logged-in user
+        customerPhone: user?.phone || '',
+        customerEmail: user?.email || '',
+        customerName:  user?.name  || '',
       };
 
       const response = await fetch(API_ENDPOINTS.ORDERS, {
